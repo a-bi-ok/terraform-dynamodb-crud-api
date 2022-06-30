@@ -9,8 +9,6 @@ provider "aws" {
   region     = var.aws_region
 }
 
-
-
 terraform {
   required_providers {
     aws = {
@@ -36,21 +34,21 @@ resource "aws_dynamodb_table" "basic-dynamodb-table" {
   billing_mode   = "PROVISIONED"
   read_capacity  = 20
   write_capacity = 20
-  hash_key       = "Id"
-  range_key      = "Item"
+  hash_key       = "id"
+  range_key      = "item"
 
   attribute {
-    name = "Id"
+    name = "id"
     type = "S"
   }
 
   attribute {
-    name = "Item"
+    name = "item"
     type = "S"
   }
 
   attribute {
-    name = "Price"
+    name = "price"
     type = "N"
   }
 
@@ -61,12 +59,12 @@ resource "aws_dynamodb_table" "basic-dynamodb-table" {
 
   global_secondary_index {
     name               = "ItemIndex"
-    hash_key           = "Item"
-    range_key          = "Price"
+    hash_key           = "item"
+    range_key          = "price"
     write_capacity     = 10
     read_capacity      = 10
     projection_type    = "INCLUDE"
-    non_key_attributes = ["Id"]
+    non_key_attributes = ["id"]
   }
 
   tags = {

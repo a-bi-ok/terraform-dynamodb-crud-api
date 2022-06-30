@@ -182,11 +182,12 @@ resource "aws_apigatewayv2_stage" "lambda" {
 # GET_ITEMS
 resource "aws_apigatewayv2_integration" "get_items" {
   api_id = aws_apigatewayv2_api.lambda.id
-
   integration_uri    = aws_lambda_function.gruntlab.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
+  payload_format_version = "2.0"
 }
+
 
 resource "aws_apigatewayv2_route" "get_items" {
   api_id = aws_apigatewayv2_api.lambda.id
@@ -202,6 +203,8 @@ resource "aws_apigatewayv2_integration" "get_items_with_id" {
   integration_uri    = aws_lambda_function.gruntlab.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
+  payload_format_version = "2.0"
+
 }
 
 resource "aws_apigatewayv2_route" "get_items_with_id" {
@@ -219,6 +222,8 @@ resource "aws_apigatewayv2_integration" "put_items" {
   integration_uri    = aws_lambda_function.gruntlab.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
+  payload_format_version = "2.0"
+
 }
 
 resource "aws_apigatewayv2_route" "put_items" {
@@ -235,6 +240,8 @@ resource "aws_apigatewayv2_integration" "delete_items" {
   integration_uri    = aws_lambda_function.gruntlab.invoke_arn
   integration_type   = "AWS_PROXY"
   integration_method = "POST"
+  payload_format_version = "2.0"
+
 }
 
 resource "aws_apigatewayv2_route" "delete_items" {
