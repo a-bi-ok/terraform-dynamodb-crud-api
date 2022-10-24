@@ -6,47 +6,55 @@ const dynamo = new AWS.DynamoDB.DocumentClient();
 
 exports.handler = async (event, context) => {
   let body;
+  let prefix;
+  // console.log("debug [event] =", event);
   let statusCode = 200;
   const headers = {
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
   };
 
   try {
-    switch (event.routeKey) {
-      case "DELETE /items/{id}":
+    switch (event.requestContext.http.method) {
+      case "DELETE":
+        prefix = event.pathParameters.proxy
         await dynamo
           .delete({
-            TableName: "http-crud-tutorial-items",
+            TableName: "mock_spur_database",
             Key: {
-              id: event.pathParameters.id
-            }
+              prefix: prefix,
+            },
           })
           .promise();
-        body = `Deleted item ${event.pathParameters.id}`;
+        body = `Deleted item ${event.queryStringParameters.id}`;
         break;
-      case "GET /items/{id}":
-        body = await dynamo
-          .get({
-            TableName: "http-crud-tutorial-items",
-            Key: {
-              id: event.pathParameters.id
-            }
-          })
-          .promise();
+      case "GET":
+        prefix = event.pathParameters.proxy
+        if(!prefix){
+          body = await dynamo.scan({ TableName: "mock_spur_database" }).promise();
+        }
+        else{
+          body = await dynamo
+            .get({
+              TableName: "mock_spur_database",
+              Key: {
+                prefix: prefix,
+              },
+            })
+            .promise();
+        }
         break;
-      case "GET /items":
-        body = await dynamo.scan({ TableName: "http-crud-tutorial-items" }).promise();
-        break;
-      case "PUT /items":
+      case "PUT":
+        prefix = event.pathParameters.proxy
         let requestJSON = JSON.parse(event.body);
         await dynamo
           .put({
-            TableName: "http-crud-tutorial-items",
+            TableName: "mock_spur_database",
             Item: {
               id: requestJSON.id,
-              price: requestJSON.price,
-              item: requestJSON.item
-            }
+              table: requestJSON.table,
+              prefix: prefix,
+              data: requestJSON.data,
+            },
           })
           .promise();
         body = `Put item ${requestJSON.id}`;
@@ -64,7 +72,9 @@ exports.handler = async (event, context) => {
   return {
     statusCode,
     body,
-    headers
+    headers,
   };
 };
+
+
 
