@@ -15,6 +15,12 @@ crash.log
 #
 *.tfvars
 
+*/venv
+node_modules/
+*.lock
+
+
+
 # Ignore override files as they are usually used to override resources locally and so
 # are not checked in
 override.tf
@@ -34,3 +40,7 @@ override.tf.json
 terraform.rc
 hello-world.zip
 response.json
+.terraform.*
+*/.terragrunt-cache/*
+
+

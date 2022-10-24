@@ -1,15 +1,11 @@
 terraform {
   backend "s3" {
   }
-
-
 }
 
 provider "aws" {
   region     = var.aws_region
 }
-
-
 
 terraform {
   required_providers {
@@ -30,47 +26,43 @@ terraform {
   required_version = "~> 1.0"
 }
 
+##########################
+# RESOURCES
+##########################
 
 resource "aws_dynamodb_table" "basic-dynamodb-table" {
-  name           = "http-crud-tutorial-items"
+  name           = "${var.table_name}"
   billing_mode   = "PROVISIONED"
   read_capacity  = 20
   write_capacity = 20
-  hash_key       = "Id"
-  range_key      = "Item"
+  hash_key       = "prefix"
+  # range_key      = "id"
 
-  attribute {
-    name = "Id"
-    type = "S"
-  }
-
-  attribute {
-    name = "Item"
-    type = "S"
-  }
-
-  attribute {
-    name = "Price"
-    type = "N"
-  }
-
-  # ttl {
-  #   attribute_name = "TimeToExist"
-  #   enabled        = false
+  # attribute {
+  #   name = "id"
+  #   type = "S"
   # }
 
-  global_secondary_index {
-    name               = "ItemIndex"
-    hash_key           = "Item"
-    range_key          = "Price"
-    write_capacity     = 10
-    read_capacity      = 10
-    projection_type    = "INCLUDE"
-    non_key_attributes = ["Id"]
+  attribute {
+    name = "prefix"
+    type = "S"
   }
 
+
+  #   global_secondary_index {
+  #     name               = "ItemIndex"
+  #     hash_key           = "prefix"
+  #     # range_key          = "price"
+  #     write_capacity     = 10
+  #     read_capacity      = 10
+  #     projection_type    = "INCLUDE"
+  #     non_key_attributes = ["id"]
+  # }
+
+
   tags = {
-    Name        = "dynamodb-table-1"
+    Name        = "infrastructure-reputations"
     Environment = "development"
   }
 }
+
