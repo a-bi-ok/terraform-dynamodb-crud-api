@@ -29,61 +29,40 @@ provider "aws" {
 ####################
 # s3 section
 ####################
-resource "random_pet" "gruntlab_lambda_bucket_name" {
-  prefix = "cts"
+resource "random_pet" "lambda_bucket_name" {
+  prefix = "${var.custom_app}"
   length = 4
 }
 
-resource "aws_s3_bucket" "gruntlab_lambda_bucket" {
-  bucket = random_pet.gruntlab_lambda_bucket_name.id
+resource "aws_s3_bucket" "lambda_bucket" {
+  bucket = random_pet.lambda_bucket_name.id
+  acl           = "private"
   force_destroy = true
 }
 
-resource "aws_s3_bucket_acl" "gruntlab_lambda_bucket_acl" {
-  bucket = aws_s3_bucket.gruntlab_lambda_bucket.id
-  acl    = "private"
-}
-
-
-resource "aws_s3_bucket_public_access_block" "gruntlab_bucket_access" {
-  bucket = aws_s3_bucket.gruntlab_lambda_bucket.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-
-}
-
-resource "aws_s3_bucket_versioning" "gruntlab_versioning_lambda_bucket" {
-  bucket = aws_s3_bucket.gruntlab_lambda_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
 
 ####################
 # lambda section
 ####################
 
-resource "aws_lambda_function" "gruntlab_http_any_function" {
-  function_name = "gruntlab-http-any-function"
-  s3_bucket = aws_s3_bucket.gruntlab_lambda_bucket.id
-  s3_key    = aws_s3_bucket_object.gruntlab_lambda_object.key
-
+resource "aws_lambda_function" "lambda_function" {
+  function_name = "${var.custom_app}-lambda-function"
+  s3_bucket = aws_s3_bucket.lambda_bucket.id
+  s3_key    = aws_s3_bucket_object.lambda_s3_bucket_object.key
   runtime = "nodejs16.x"
   handler = "index.handler"
-  role = aws_iam_role.gruntlab_lambda_exec.arn
+  role = aws_iam_role.lambda_exec_role.arn
 }
 
-resource "aws_cloudwatch_log_group" "gruntlab_lambda_log_group" {
-  name = "/aws/lambda/${aws_lambda_function.gruntlab_http_any_function.function_name}"
+resource "aws_cloudwatch_log_group" "lambda_cloudwatch_log_group" {
+  name = "/aws/lambda/${aws_lambda_function.lambda_function.function_name}"
   retention_in_days = 30
 }
 
 # managed policy
-resource "aws_iam_role" "gruntlab_lambda_exec" {
-  name = "gruntlab-lambda-exec"
 
+resource "aws_iam_role" "lambda_exec_role" {
+  name = "${var.custom_app}-lambda-exec-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -98,13 +77,12 @@ resource "aws_iam_role" "gruntlab_lambda_exec" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "gruntlab_lambda_policy" {
-  role       = aws_iam_role.gruntlab_lambda_exec.name
+resource "aws_iam_role_policy_attachment" "lamda_role_policy_attachment" {
+  role       = aws_iam_role.lambda_exec_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 #custom policy
-
 resource "aws_iam_policy" "dynamodb_access_policy" {
   name        = "LambdaDynamodbExecution"
   path        = "/"
@@ -116,63 +94,62 @@ resource "aws_iam_policy" "dynamodb_access_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action : [
-          "dynamodb:GetItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:PutItem",
-          "dynamodb:Scan",
-          "dynamodb:Query",
-          "dynamodb:UpdateItem",
-          "dynamodb:BatchWriteItem",
-          "dynamodb:BatchGetItem",
-          "dynamodb:DescribeTable",
-          "dynamodb:ConditionCheckItem"
-        ],
-        Resource : [
-          "*",
-        ],
-        Effect : "Allow"
-      }
-
+        Action: [
+                "dynamodb:GetItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:PutItem",
+                "dynamodb:Scan",
+                "dynamodb:Query",
+                "dynamodb:UpdateItem",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:BatchGetItem",
+                "dynamodb:DescribeTable",
+                "dynamodb:ConditionCheckItem"
+            ],
+            Resource: [
+                "*",
+            ],
+            Effect: "Allow"
+        }
+      
     ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "gruntlab_attach_custom_policy" {
-  role       = aws_iam_role.gruntlab_lambda_exec.name
+resource "aws_iam_role_policy_attachment" "attach-custom-policy" {
+  role       = aws_iam_role.lambda_exec_role.name
   policy_arn = aws_iam_policy.dynamodb_access_policy.arn
 }
 
 # s3 object
-data "archive_file" "gruntlab_archive_file" {
-  type        = "zip"
+data "archive_file" "archive_file" {
+  type = "zip"
   source_dir  = "${path.module}/gruntlab-lambda"
   output_path = "${path.module}/gruntlab-lambda.zip"
 }
 
-resource "aws_s3_bucket_object" "gruntlab_lambda_object" {
-  bucket = aws_s3_bucket.gruntlab_lambda_bucket.id
+resource "aws_s3_bucket_object" "lambda_s3_bucket_object" {
+  bucket = aws_s3_bucket.lambda_bucket.id
   key    = "gruntlab-lambda.zip"
-  source = data.archive_file.gruntlab_archive_file.output_path
-  etag   = filemd5(data.archive_file.gruntlab_archive_file.output_path)
+  source = data.archive_file.archive_file.output_path
+  etag = filemd5(data.archive_file.archive_file.output_path)
 }
 
 ####################
 # API GATEWAY section
 ####################
 
-resource "aws_apigatewayv2_api" "gruntlab_apigw_api" {
-  name          = "gruntlab-apigw-api"
+resource "aws_apigatewayv2_api" "apigatewayv2_api" {
+  name          = "${var.custom_app}-apigatewayv2-api"
   protocol_type = "HTTP"
 }
 
-resource "aws_apigatewayv2_stage" "gruntlab_apigw_stage" {
-  api_id = aws_apigatewayv2_api.gruntlab_apigw_api.id
-  name        = "gruntlab-apigw-stage"
+resource "aws_apigatewayv2_stage" "apigatewayv2_stage" {
+  api_id = aws_apigatewayv2_api.apigatewayv2_api.id
+  name        = "serverless_lambda_stage"
   auto_deploy = true
-
   access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.gruntlab_api_gw_log_group.arn
+    destination_arn = aws_cloudwatch_log_group.apigw_cloudwatch_log_group.arn
     format = jsonencode({
       requestId               = "$context.requestId"
       sourceIp                = "$context.identity.sourceIp"
@@ -191,84 +168,34 @@ resource "aws_apigatewayv2_stage" "gruntlab_apigw_stage" {
 
 # --INTEGRATIONS--
 # GET_ITEMS
-resource "aws_apigatewayv2_integration" "gruntlab_apigw_int" {
-  api_id = aws_apigatewayv2_api.gruntlab_apigw_api.id
-  integration_uri        = aws_lambda_function.gruntlab_http_any_function.invoke_arn
-  integration_type       = "AWS_PROXY"
-  integration_method     = "POST"
+resource "aws_apigatewayv2_integration" "apigatewayv2_integration" {
+  api_id = aws_apigatewayv2_api.apigatewayv2_api.id
+  integration_uri    = aws_lambda_function.lambda_function.invoke_arn
+  integration_type   = "AWS_PROXY"
+  integration_method = "POST"
   payload_format_version = "2.0"
-
 }
 
-resource "aws_apigatewayv2_route" "any_items" {
-  api_id    = aws_apigatewayv2_api.gruntlab_apigw_api.id
+
+resource "aws_apigatewayv2_route" "any_apigatewayv2_route" {
+  api_id = aws_apigatewayv2_api.apigatewayv2_api.id
   route_key = "ANY /v1/{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.gruntlab_apigw_int.id}"
-  depends_on = [
-    aws_apigatewayv2_integration.gruntlab_apigw_int
-  ]
+  target    = "integrations/${aws_apigatewayv2_integration.apigatewayv2_integration.id}"
 }
 
-
-# GET_ITEMS_WITH_ID
-# resource "aws_apigatewayv2_integration" "get_item_by_type" {
-#   api_id                 = aws_apigatewayv2_api.lambda.id
-#   integration_uri        = aws_lambda_function.gruntlab.invoke_arn
-#   integration_type       = "AWS_PROXY"
-#   integration_method     = "POST"
-#   payload_format_version = "2.0"
-# }
-
-# resource "aws_apigatewayv2_route" "get_item_by_type" {
-#   depends_on = [
-#     aws_apigatewayv2_integration.get_item_by_type
-#   ]
-#   api_id    = aws_apigatewayv2_api.lambda.id
-#   route_key = "GET /v1/{type}/{category}"
-#   target    = "integrations/${aws_apigatewayv2_integration.get_item_by_type.id}"
-# }
-
-# # PUT_ITEMS
-# resource "aws_apigatewayv2_integration" "put_items" {
-#   api_id                 = aws_apigatewayv2_api.lambda.id
-#   integration_uri        = aws_lambda_function.gruntlab.invoke_arn
-#   integration_type       = "AWS_PROXY"
-#   integration_method     = "POST"
-#   payload_format_version = "2.0"
-
-# }
-
-# resource "aws_apigatewayv2_route" "put_items" {
-#   api_id    = aws_apigatewayv2_api.lambda.id
-#   route_key = "PUT /v1/{type}/{category}"
-#   target    = "integrations/${aws_apigatewayv2_integration.put_items.id}"
-# }
-
-# # # DELETE_ITEMS_WITH_ID
-# resource "aws_apigatewayv2_integration" "delete_items" {
-#   api_id                 = aws_apigatewayv2_api.lambda.id
-#   integration_uri        = aws_lambda_function.gruntlab.invoke_arn
-#   integration_type       = "AWS_PROXY"
-#   integration_method     = "POST"
-#   payload_format_version = "2.0"
-# }
-
-# resource "aws_apigatewayv2_route" "delete_items" {
-#   api_id    = aws_apigatewayv2_api.lambda.id
-#   route_key = "DELETE /v1/{type}/{category}"
-#   target    = "integrations/${aws_apigatewayv2_integration.delete_items.id}"
-# }
 
 # CLOUDWATCH
-resource "aws_cloudwatch_log_group" "gruntlab_api_gw_log_group" {
-  name              = "/aws/api_gw/${aws_apigatewayv2_api.gruntlab_apigw_api.name}"
+resource "aws_cloudwatch_log_group" "apigw_cloudwatch_log_group" {
+  name = "/aws/api_gw/${aws_apigatewayv2_api.apigatewayv2_api.name}"
   retention_in_days = 30
 }
 
-resource "aws_lambda_permission" "gruntlab_api_gw_permission" {
+resource "aws_lambda_permission" "lambda_permission" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.gruntlab_http_any_function.function_name
+  function_name = aws_lambda_function.lambda_function.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.gruntlab_apigw_api.execution_arn}/*/*"
+
+  source_arn = "${aws_apigatewayv2_api.apigatewayv2_api.execution_arn}/*/*"
 }
+
